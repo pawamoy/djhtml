@@ -56,6 +56,8 @@ class BaseMode:
         mode = self
         src = self.source
 
+        closing_marker = True
+
         while True:
             if src.find("\n") > mode.MAX_LINE_LENGTH:
                 raise MaxLineLengthExceeded
@@ -77,6 +79,14 @@ class BaseMode:
                 # Create a token from the head.
                 token, mode = mode.create_token(head, raw_token + tail, line)
                 line.append(token)
+                if isinstance(token, Token.Open):
+                    if not token.text.endswith("%}"):
+                        closing_marker = False
+                elif isinstance(token, Token.Text) and not closing_marker:
+                    if token.text.endswith("%}"):
+                        closing_marker = True
+                    else:
+                        token.relative += 1
 
             if raw_token == "\n":
                 self.lines.append(line)
@@ -209,7 +219,7 @@ class DjTXT(BaseMode):
         "video": (" as ", None),
         "placeholder": (" or ", None),
     }
-    OPENING_TAG = r"{%[-+]? *[#/]?(\w+).*?[-+]?%}"
+    OPENING_TAG = r"{%[-+]? *[#/]?(\w+).*?(?:[-+]?%})?"
 
     def create_token(self, raw_token, src, line):
         mode = self
